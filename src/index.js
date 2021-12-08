@@ -1,6 +1,6 @@
-// fetchAllFeatures API - START
+/* fetchAllFeatures API - START */
 function fetchAllFeatures() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, _reject) => {
     const sampleFeatures = {
       "extended-summary": true,
       "feedback-dialog": false
@@ -9,28 +9,23 @@ function fetchAllFeatures() {
     setTimeout(resolve, 100, sampleFeatures);
   });
 }
-// fetchAllFeatures API - START
+/* fetchAllFeatures API - END */
 
-// Problem statement
-// - Write an API which can provide the specified feature flag.
-// - If the feature flag doesn't exist or the API fails, we should return the defaultFeatureFlag.
-// - The API should support caching, and it should have a cache expiration time.
-// - When the API gets successive call, then also it should make only one call to the fetchAllFeatures API.
-// getFeatureState API - START
+
+/* getFeatureState API - START */
 let cachedAllFeatures = null;
 let callInProgress = null;
-let cacheExpirationTime = 1000;
 function getFeatureState(featureFlag, defaultFeature) {
-  let timeInterval;
-  const triggerExpireCache = () => {
-    if (timeInterval !== undefined) {
-      clearTimeout(clearTimeout);
+  let timer;
+  const triggerCacheClear = () => {
+    if (timer !== undefined) {
+      clearTimeout(timer);
     }
 
-    timeInterval = setTimeout(() => {
+    timer = setTimeout(() => {
       cachedAllFeatures = null;
       callInProgress = null;
-    }, cacheExpirationTime);
+    }, 1000/* cacheExpirationTime */);
   };
 
   if (cachedAllFeatures) {
@@ -42,30 +37,31 @@ function getFeatureState(featureFlag, defaultFeature) {
   }
 
   const getFeatureFlag = () => {
-    if (cachedAllFeatures[featureFlag] !== undefined) {
+    if (cachedAllFeatures && cachedAllFeatures[featureFlag] !== undefined) {
       return cachedAllFeatures[featureFlag];
     } else {
       return defaultFeature;
     }
   };
 
+  // to avoid next request, in case a request is already in progress
   if (callInProgress) {
     return callInProgress.then(getFeatureFlag);
   }
-  callInProgress = new Promise(async (resolve) => {
-    try {
-      if (cachedAllFeatures === null) {
-        cachedAllFeatures = await fetchAllFeatures();
-        triggerExpireCache();
+  callInProgress = new Promise((resolve, _reject) => {
+    if (cachedAllFeatures === null) {
+      fetchAllFeatures().then((data) => {
+        cachedAllFeatures = data;
+        triggerCacheClear();
         resolve();
-      }
-    } catch {
-      resolve(defaultFeature);
+      }).catch(() => {
+        resolve(defaultFeature);
+      });
     }
   });
   return callInProgress.then(getFeatureFlag);
 }
-// getFeatureState API - END
+/* getFeatureState API - END */
 
 // PLACEHOLDERS - START
 function showExtendedSummary() {
